@@ -8,7 +8,7 @@ const port = 3000;
 const messages = [{ from: "Zohreh", text: "Welcome to the chat!"}];
 
 
-app.get("/", (req,res) => {
+app.get("/messages", (req,res) => {
     res.json(messages)
 
 })
