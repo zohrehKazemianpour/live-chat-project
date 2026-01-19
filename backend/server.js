@@ -13,7 +13,17 @@ const messages = [{ from: "Zohreh", text: "Welcome to the chat!"}];
 
 
 app.get("/messages", (req,res) => {
-    res.json(messages)
+
+  const since = req.query.since;
+
+  if (since !== undefined) {
+    const sinceIndex = parseInt(since);
+    const messageSince = messages.slice(sinceIndex + 1);
+    res.json(messageSince)
+
+  } else {
+    res.json(messages);
+  }
 
 })
 
@@ -43,7 +53,7 @@ app.post("/messages", (req, res) => {
 
 
 app.listen(port, () => {
-    console.log(`Quote server listening on port ${port}`);
+    console.log(`server listening on port ${port}`);
 })
 
 
