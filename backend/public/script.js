@@ -48,7 +48,7 @@ chatForm.addEventListener("submit", async (event) => {
     console.log("Message sent successfully!");
     // Optional: Clear the message box so the user can type a new one
     document.getElementById("message-input").value = "";
-    keepFetchingMessages()
+    
   } else {
     const errorData = await res.json();
     alert("Error: " + errorData.message);
