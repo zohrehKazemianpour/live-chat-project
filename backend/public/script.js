@@ -14,17 +14,20 @@ async function keepFetchingMessages() {
     const res = await fetch(`/messages?since=${lastMessageTime}`);
     const newMessages = await res.json();
     if (newMessages.length > 0) {
-      
       state.messages = [...state.messages, ...newMessages];
-      
+
       newMessages.forEach((msg) => {
         const div = document.createElement("div");
         div.innerHTML = `<strong>${msg.from}:</strong> ${msg.text}`;
         messageList.appendChild(div);
       });
+      //START THE NEXT REQUEST IMMEDIATELY
+      keepFetchingMessages();
     }
   } catch (error) {
     console.error("Fetch error:", error);
+    //IF SERVER FAILS, WAIT 5 SECONDS BEFORE RETRYING
+    setTimeout(keepFetchingMessages, 5000);
   }
 }
 
