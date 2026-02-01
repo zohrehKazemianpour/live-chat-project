@@ -49,6 +49,27 @@ app.post("/messages", (req, res) => {
   res.status(201).json(newMessage);
 });
 
+app.delete("/messages/:id", (req, res) => {
+  // 1. Find out which ID the user clicked on
+  const idToDelete = Number(req.params.id);
+
+  // 2. Look through the 'messages' array and find that ID
+  const index = messages.findIndex((m) => m.id === idToDelete);
+
+  if (index !== -1) {
+    // 3. If found, pull it out of the array
+    messages.splice(index, 1);
+
+    // 4. Update the waiting room 
+    waitingClients.forEach((client) => {
+      client.json({ deletedId: idToDelete });
+    });
+    waitingClients = [];
+
+    res.json({ success: true });
+  }
+});
+
 app.listen(port, () => {
   console.log(`server listening on port ${port}`);
 });

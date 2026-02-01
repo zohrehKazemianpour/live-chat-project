@@ -10,20 +10,30 @@ async function keepFetchingMessages() {
   const lastMessageTime = lastMessage ? lastMessage.timestamp : "";
 
   try {
-    
     const res = await fetch(`/messages?since=${lastMessageTime}`);
-    const newMessages = await res.json();
-    if (newMessages.length > 0) {
-      state.messages = [...state.messages, ...newMessages];
+    const data = await res.json();
 
-      newMessages.forEach((msg) => {
+    // Handle Deletion Signal
+    if (data.deletedId) {
+      const element = document.getElementById(`msg-${data.deletedId}`);
+      if (element) element.remove();
+      state.messages = state.messages.filter((m) => m.id !== data.deletedId);
+    } else if (Array.isArray(data) && data.length > 0) {
+      state.messages = [...state.messages, ...data];
+
+      data.forEach((msg) => {
         const div = document.createElement("div");
-        div.innerHTML = `<strong>${msg.from}:</strong> ${msg.text}`;
+
+        // We assign a unique ID to the HTML element itself
+        div.id = `msg-${msg.id}`;
+        div.innerHTML = `<strong>${msg.from}:</strong> ${msg.text}
+        <button onclick="deleteMessage(${msg.id})"><i class="material-icons">delete</i></button>`;
         messageList.appendChild(div);
       });
-      //START THE NEXT REQUEST IMMEDIATELY
-      keepFetchingMessages();
     }
+
+    keepFetchingMessages();
+
   } catch (error) {
     console.error("Fetch error:", error);
     //IF SERVER FAILS, WAIT 5 SECONDS BEFORE RETRYING
@@ -59,3 +69,19 @@ chatForm.addEventListener("submit", async (event) => {
 });
 
 keepFetchingMessages()
+
+async function deleteMessage(id) {
+  try {
+    const res = await fetch(`/messages/${id}`, {
+      method: "DELETE",
+    });
+
+    if (res.ok) {
+      console.log("Deleted message", id);
+      // We don't manually remove it from the DOM here!
+      // We wait for the Long Polling loop to tell us it's gone.
+    }
+  } catch (err) {
+    console.error("Delete failed", err);
+  }
+}
