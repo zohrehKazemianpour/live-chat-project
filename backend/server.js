@@ -9,7 +9,14 @@ const wss = new WebSocketServer({ noServer: true });
 // 2. State/Data
 let socketClients = [];
 let waitingClients = [];
-const messages = [{ from: "Zohreh", text: "Welcome to the chat!" }];
+const messages = [
+  {
+    id: Date.now(),
+    from: "Zohreh",
+    text: "Welcome to the chat!",
+    timestamp: new Date().toISOString(),
+  },
+];
 
 // 3. Middleware & Static Routes
 app.use(express.json());
@@ -58,6 +65,13 @@ app.post("/messages", (req, res) => {
 
   // Clear the waiting room since they all just got the message
   waitingClients = [];
+
+  // Broadcast to any connected WebSocket clients as well
+  socketClients.forEach((client) => {
+    if (client.readyState === 1) {
+      client.send(JSON.stringify({ type: "newMessage", message: newMessage }));
+    }
+  });
 
   res.status(201).json(newMessage);
 });
@@ -113,15 +127,20 @@ wss.on("connection", (ws) => {
 
         messages.push(newMessage);
 
-        // Broadcast to all connected clients
+        // Broadcast to all connected WebSocket clients
         socketClients.forEach((client) => {
           if (client.readyState === 1) {
-            // OPEN
             client.send(
               JSON.stringify({ type: "newMessage", message: newMessage }),
             );
           }
         });
+
+        // Also notify waiting long-polling clients
+        waitingClients.forEach((clientRes) => {
+          clientRes.json([newMessage]);
+        });
+        waitingClients = [];
       } else if (parsed.type === "deleteMessage") {
         const idToDelete = parsed.id;
         const index = messages.findIndex((m) => m.id === idToDelete);
@@ -136,6 +155,12 @@ wss.on("connection", (ws) => {
               );
             }
           });
+
+          // Also notify waiting long-polling clients
+          waitingClients.forEach((client) => {
+            client.json({ deletedId: idToDelete });
+          });
+          waitingClients = [];
         }
       }
     } catch (err) {
