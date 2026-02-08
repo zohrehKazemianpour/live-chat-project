@@ -1,14 +1,27 @@
+import http from "http";
 import express from "express";
+import { WebSocketServer } from "ws";
 
+//Initialise Engines
 const app = express();
-app.use(express.static("public"));
+const wss = new WebSocketServer({ noServer: true });
+
+// 2. State/Data
+let socketClients = [];
+let waitingClients = [];
+const messages = [{ from: "Zohreh", text: "Welcome to the chat!" }];
+
+// 3. Middleware & Static Routes
 app.use(express.json());
+app.use("/polling", express.static("public-polling"));
+app.use("/ws", express.static("public-WebSocket"));
+
+// 4. Server Wrapper (Wrap express app in an HTTP server to handle protocol upgrades)
+const server = http.createServer(app);
 
 const port = 3000;
 
-const messages = [{ from: "Zohreh", text: "Welcome to the chat!" }];
-
-let waitingClients = []
+///////////---- HTTP- Long polling ----///////////
 
 app.get("/messages", (req, res) => {
   const since = req.query.since;
@@ -26,7 +39,7 @@ app.get("/messages", (req, res) => {
   // 3. Safety: If the client closes the tab, remove them from the room
   req.on("close", () => {
     waitingClients = waitingClients.filter((client) => client !== res);
-  })
+  });
 });
 
 app.post("/messages", (req, res) => {
@@ -60,7 +73,7 @@ app.delete("/messages/:id", (req, res) => {
     // 3. If found, pull it out of the array
     messages.splice(index, 1);
 
-    // 4. Update the waiting room 
+    // 4. Update the waiting room
     waitingClients.forEach((client) => {
       client.json({ deletedId: idToDelete });
     });
@@ -70,6 +83,73 @@ app.delete("/messages/:id", (req, res) => {
   }
 });
 
-app.listen(port, () => {
+///////////---- WebSocket ----///////////
+
+// Handle HTTP -> WS upgrade
+server.on("upgrade", (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit("connection", ws, request);
+  });
+});
+
+wss.on("connection", (ws) => {
+  console.log("Someone joined the WebSocket chat!");
+  socketClients.push(ws);
+
+  // Send existing messages to new client
+  ws.send(JSON.stringify({ type: "initial", messages }));
+
+  ws.on("message", (data) => {
+    try {
+      const parsed = JSON.parse(data);
+
+      if (parsed.type === "newMessage") {
+        const newMessage = {
+          id: Date.now(),
+          from: parsed.from,
+          text: parsed.text,
+          timestamp: new Date().toISOString(),
+        };
+
+        messages.push(newMessage);
+
+        // Broadcast to all connected clients
+        socketClients.forEach((client) => {
+          if (client.readyState === 1) {
+            // OPEN
+            client.send(
+              JSON.stringify({ type: "newMessage", message: newMessage }),
+            );
+          }
+        });
+      } else if (parsed.type === "deleteMessage") {
+        const idToDelete = parsed.id;
+        const index = messages.findIndex((m) => m.id === idToDelete);
+
+        if (index !== -1) {
+          messages.splice(index, 1);
+
+          socketClients.forEach((client) => {
+            if (client.readyState === 1) {
+              client.send(
+                JSON.stringify({ type: "deleteMessage", id: idToDelete }),
+              );
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error parsing WebSocket message:", err);
+    }
+  });
+
+  ws.on("close", () => {
+    console.log("Someone left the WebSocket chat!");
+    socketClients = socketClients.filter((client) => client !== ws);
+  });
+});
+
+// Start the server instance on port 3000
+server.listen(port, () => {
   console.log(`server listening on port ${port}`);
 });

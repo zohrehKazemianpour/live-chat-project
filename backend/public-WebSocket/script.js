@@ -5,43 +5,63 @@ const state = {
 const chatForm = document.getElementById("chat-form");
 const messageList = document.getElementById("message-list");
 
-async function keepFetchingMessages() {
-  const lastMessage = state.messages[state.messages.length - 1];
-  const lastMessageTime = lastMessage ? lastMessage.timestamp : "";
+let ws;
 
-  try {
-    const res = await fetch(`/messages?since=${lastMessageTime}`);
-    const data = await res.json();
+function connectWebSocket() {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${protocol}//${window.location.host}`;
 
-    // Handle Deletion Signal
-    if (data.deletedId) {
-      const element = document.getElementById(`msg-${data.deletedId}`);
-      if (element) element.remove();
-      state.messages = state.messages.filter((m) => m.id !== data.deletedId);
-    } else if (Array.isArray(data) && data.length > 0) {
-      state.messages = [...state.messages, ...data];
+  ws = new WebSocket(wsUrl);
 
-      data.forEach((msg) => {
-        const div = document.createElement("div");
+  ws.onopen = () => {
+    console.log("Connected to WebSocket server!");
+  };
 
-        // We assign a unique ID to the HTML element itself
-        div.id = `msg-${msg.id}`;
-        div.innerHTML = `<strong>${msg.from}:</strong> ${msg.text}
-        <button onclick="deleteMessage(${msg.id})"><i class="material-icons">delete</i></button>`;
-        messageList.appendChild(div);
-      });
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "initial") {
+        // Got all messages on connect
+        state.messages = data.messages;
+        renderMessages();
+      } else if (data.type === "newMessage") {
+        state.messages.push(data.message);
+        addMessageToDOM(data.message);
+      } else if (data.type === "deleteMessage") {
+        const element = document.getElementById(`msg-${data.id}`);
+        if (element) element.remove();
+        state.messages = state.messages.filter((m) => m.id !== data.id);
+      }
+    } catch (err) {
+      console.error("Error parsing WebSocket message:", err);
     }
+  };
 
-    keepFetchingMessages();
+  ws.onerror = (error) => {
+    console.error("WebSocket error:", error);
+  };
 
-  } catch (error) {
-    console.error("Fetch error:", error);
-    //IF SERVER FAILS, WAIT 5 SECONDS BEFORE RETRYING
-    setTimeout(keepFetchingMessages, 5000);
-  }
+  ws.onclose = () => {
+    console.log("WebSocket connection closed. Reconnecting in 3 seconds...");
+    setTimeout(connectWebSocket, 3000);
+  };
 }
 
+function renderMessages() {
+  messageList.innerHTML = "";
+  state.messages.forEach((msg) => {
+    addMessageToDOM(msg);
+  });
+}
 
+function addMessageToDOM(msg) {
+  const div = document.createElement("div");
+  div.id = `msg-${msg.id}`;
+  div.innerHTML = `<strong>${msg.from}:</strong> ${msg.text}
+    <button onclick="deleteMessage(${msg.id})"><i class="material-icons">delete</i></button>`;
+  messageList.appendChild(div);
+}
 
 chatForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -49,39 +69,32 @@ chatForm.addEventListener("submit", async (event) => {
   const userName = document.getElementById("name-input").value;
   const userText = document.getElementById("message-input").value;
 
-  const res = await fetch("/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from: userName, text: userText }),
-  });
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(
+      JSON.stringify({
+        type: "newMessage",
+        from: userName,
+        text: userText,
+      }),
+    );
 
-  if (res.ok) {
-    console.log("Message sent successfully!");
-    // Optional: Clear the message box so the user can type a new one
+    console.log("Message sent via WebSocket!");
     document.getElementById("message-input").value = "";
-    
   } else {
-    const errorData = await res.json();
-    alert("Error: " + errorData.message);
+    alert("WebSocket connection not ready. Please wait...");
   }
 });
 
-keepFetchingMessages()
-
-async function deleteMessage(id) {
-  try {
-    const res = await fetch(`/messages/${id}`, {
-      method: "DELETE",
-    });
-
-    if (res.ok) {
-      console.log("Deleted message", id);
-      // We don't manually remove it from the DOM here!
-      // We wait for the Long Polling loop to tell us it's gone.
-    }
-  } catch (err) {
-    console.error("Delete failed", err);
+function deleteMessage(id) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(
+      JSON.stringify({
+        type: "deleteMessage",
+        id: id,
+      }),
+    );
+    console.log("Delete request sent via WebSocket");
   }
 }
+
+connectWebSocket();
