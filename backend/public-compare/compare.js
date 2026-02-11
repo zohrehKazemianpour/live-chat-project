@@ -55,7 +55,7 @@ function initPolling(panelRoot) {
   const nameInput = panelRoot.querySelector('input[type="text"]');
   const textInput = panelRoot.querySelectorAll('input[type="text"]')[1];
 
-  const state = { messages: [] };
+  const state = { messages: [], initial: true };
 
   async function keepFetching() {
     const last = state.messages[state.messages.length - 1];
