@@ -20,8 +20,10 @@ const messages = [
 
 // 3. Middleware & Static Routes
 app.use(express.json());
-app.use("/polling", express.static("public-polling"));
-app.use("/ws", express.static("public-WebSocket"));
+app.use("/compare", express.static("public-compare"));
+
+// Redirect root to the compare demo page (single canonical demo)
+app.get("/", (req, res) => res.redirect("/compare"));
 
 // 4. Server Wrapper (Wrap express app in an HTTP server to handle protocol upgrades)
 const server = http.createServer(app);
