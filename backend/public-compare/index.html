@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Compare: Polling vs WebSocket</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Real-time Chat Demo</h1>
+      <p class="subtitle">
+        Compare long-polling and WebSocket. Send a message and watch both update
+        instantly.
+      </p>
+      <div class="chips">
+        <span class="chip polling">Long Polling</span>
+        <span class="chip ws">WebSocket</span>
+      </div>
+    </header>
+
+    <main class="compare">
+      <section class="panel" id="polling-panel">
+        <h2>Long Polling</h2>
+        <div class="chat-window">
+          <div class="messages" id="polling-messages"></div>
+          <form class="chat-form" id="polling-form">
+            <input
+              type="text"
+              id="polling-name"
+              placeholder="Your name"
+              required
+            />
+            <input
+              type="text"
+              id="polling-text"
+              placeholder="Type a message..."
+              required
+            />
+            <button type="submit">Send</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="panel" id="ws-panel">
+        <h2>WebSocket</h2>
+        <div class="chat-window">
+          <div class="messages" id="ws-messages"></div>
+          <form class="chat-form" id="ws-form">
+            <input type="text" id="ws-name" placeholder="Your name" required />
+            <input
+              type="text"
+              id="ws-text"
+              placeholder="Type a message..."
+              required
+            />
+            <button type="submit">Send</button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <script src="compare.js" defer></script>
+  </body>
+</html>
