@@ -34,18 +34,25 @@ const port = 3000;
 
 app.get("/messages", (req, res) => {
   const since = req.query.since;
-  //check for the new message
+
+  // If the client didn't provide a `since` timestamp, return the full
+  // message history so new/polling clients see existing messages on open.
+  if (!since) {
+    return res.json(messages);
+  }
+
+  // Otherwise return any messages newer than `since`.
   const filtered = messages.filter((m) => m.timestamp > since);
 
-  //if yes send immediately
+  // If there are new messages, return them immediately
   if (filtered.length > 0) {
     return res.json(filtered);
   }
 
-  //if no new message put the client in the waiting room
+  // If no new message, put the client in the waiting room
   waitingClients.push(res);
 
-  // 3. Safety: If the client closes the tab, remove them from the room
+  // Safety: If the client closes the tab, remove them from the room
   req.on("close", () => {
     waitingClients = waitingClients.filter((client) => client !== res);
   });
