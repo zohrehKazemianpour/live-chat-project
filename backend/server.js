@@ -33,26 +33,35 @@ const port = 3000;
 ///////////---- HTTP- Long polling ----///////////
 
 app.get("/messages", (req, res) => {
+  const initial = req.query.initial === "true";
   const since = req.query.since;
 
-  // If the client didn't provide a `since` timestamp, return the full
+  // If the client explicitly requested an initial sync, return the full
   // message history so new/polling clients see existing messages on open.
-  if (!since) {
+  if (initial) {
     return res.json(messages);
   }
 
-  // Otherwise return any messages newer than `since`.
-  const filtered = messages.filter((m) => m.timestamp > since);
+  // If the client provided a `since` timestamp, return any messages newer
+  // than that timestamp. If none exist, hold the response (long-poll).
+  if (since) {
+    const filtered = messages.filter((m) => m.timestamp > since);
+    if (filtered.length > 0) {
+      return res.json(filtered);
+    }
 
-  // If there are new messages, return them immediately
-  if (filtered.length > 0) {
-    return res.json(filtered);
+    // If no new message, put the client in the waiting room
+    waitingClients.push(res);
+    // Safety: If the client closes the tab, remove them from the room
+    req.on("close", () => {
+      waitingClients = waitingClients.filter((client) => client !== res);
+    });
+    return;
   }
 
-  // If no new message, put the client in the waiting room
+  // Neither initial nor since provided: treat as a long-poll request and
+  // keep the response open until new messages arrive.
   waitingClients.push(res);
-
-  // Safety: If the client closes the tab, remove them from the room
   req.on("close", () => {
     waitingClients = waitingClients.filter((client) => client !== res);
   });
