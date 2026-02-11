@@ -60,8 +60,11 @@ function initPolling(panelRoot) {
   async function keepFetching() {
     const last = state.messages[state.messages.length - 1];
     const since = last ? last.timestamp : "";
+    const url = state.initial
+      ? `/messages?initial=true`
+      : `/messages?since=${since}`;
     try {
-      const res = await fetch(`/messages?since=${since}`);
+      const res = await fetch(url);
       const data = await res.json();
 
       if (data.deletedId) {
@@ -69,12 +72,21 @@ function initPolling(panelRoot) {
         if (el) el.remove();
         state.messages = state.messages.filter((m) => m.id !== data.deletedId);
       } else if (Array.isArray(data) && data.length) {
-        state.messages = [...state.messages, ...data];
-        data.forEach((m) => {
-          const el = createMessageElement(m, nameInput.value);
-          messagesEl.appendChild(el);
-          messagesEl.scrollTop = messagesEl.scrollHeight;
-        });
+        // Defensive dedupe: only append messages we don't already have.
+        const newMsgs = data.filter(
+          (m) => !state.messages.find((x) => x.id === m.id),
+        );
+        if (newMsgs.length) {
+          state.messages = [...state.messages, ...newMsgs];
+          newMsgs.forEach((m) => {
+            const el = createMessageElement(m, nameInput.value);
+            messagesEl.appendChild(el);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          });
+        }
+        // After an initial sync, mark that we've loaded history so future
+        // requests use the `since` timestamp.
+        if (state.initial) state.initial = false;
       }
       // immediately poll again
       keepFetching();
