@@ -1,6 +1,12 @@
 // compare.js
 // Mounts two chat clients on one page: polling and websocket
 
+const API_BASE =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? ""
+    : "https://y4w4400kwcwkc0444c84gsc0.hosting.codeyourfuture.io";
+
 /* Helpers */
 function createMessageElement(msg, meName) {
   // Build message element
@@ -30,7 +36,7 @@ function createMessageElement(msg, meName) {
     // optimistic UI: remove from DOM immediately
     if (parent) parent.removeChild(el);
     try {
-      await fetch(`/messages/${msg.id}`, { method: "DELETE" });
+      await fetch(`${API_BASE}/messages/${msg.id}`, { method: "DELETE" });
     } catch (err) {
       console.error("delete failed", err);
       btn.disabled = false;
@@ -61,8 +67,8 @@ function initPolling(panelRoot) {
     const last = state.messages[state.messages.length - 1];
     const since = last ? last.timestamp : "";
     const url = state.initial
-      ? `/messages?initial=true`
-      : `/messages?since=${since}`;
+      ? `${API_BASE}/messages?initial=true`
+      : `${API_BASE}/messages?since=${since}`;
     try {
       const res = await fetch(url);
       const data = await res.json();
@@ -101,7 +107,7 @@ function initPolling(panelRoot) {
     const from = nameInput.value || "Anon";
     const text = textInput.value;
     if (!text) return;
-    const res = await fetch("/messages", {
+    const res = await fetch(`${API_BASE}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from, text }),
@@ -116,7 +122,7 @@ function initPolling(panelRoot) {
     // on click delete (simple UX for demo)
     const id = item.dataset.id;
     try {
-      await fetch(`/messages/${id}`, { method: "DELETE" });
+      await fetch(`${API_BASE}/messages/${id}`, { method: "DELETE" });
     } catch (err) {
       console.error("delete failed", err);
     }
@@ -135,8 +141,17 @@ function initWebSocket(panelRoot) {
 
   let ws;
   function connect() {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    ws = new WebSocket(`${protocol}//${window.location.host}`);
+    let wsUrl;
+    if (
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1"
+    ) {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      wsUrl = `${protocol}//${window.location.host}`;
+    } else {
+      wsUrl = "wss://y4w4400kwcwkc0444c84gsc0.hosting.codeyourfuture.io";
+    }
+    ws = new WebSocket(wsUrl);
 
     ws.onopen = () => console.log("WS connected");
     ws.onmessage = (ev) => {
