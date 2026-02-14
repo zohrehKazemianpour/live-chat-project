@@ -5,7 +5,7 @@ const API_BASE =
   window.location.hostname === "localhost" ||
   window.location.hostname === "127.0.0.1"
     ? ""
-    : "https://zohreh-backend-chatapp.codeyourfuture.io";
+    : "https://zohreh-chatapp-backend.hosting.codeyourfuture.io";
 
 /* Helpers */
 function createMessageElement(msg, meName) {
@@ -149,7 +149,7 @@ function initWebSocket(panelRoot) {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       wsUrl = `${protocol}//${window.location.host}`;
     } else {
-      wsUrl = "wss://zohreh-backend-chatapp.codeyourfuture.io";
+      wsUrl = "wss://zohreh-chatapp-backend.hosting.codeyourfuture.io";
     }
     ws = new WebSocket(wsUrl);
 
